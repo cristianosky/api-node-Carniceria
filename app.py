@@ -97,5 +97,10 @@ def recurso_protegido():
     current_user = get_jwt_identity()
     return jsonify(mensaje="Acceso permitido", usuario=current_user), 200
 
+@app.route('/')
+def index():
+    return 'Hello, World!'
+
 if __name__ == '__main__':
-    app.run()
+    port = int(os.environ.get('PORT', 5000))  # Render proporcionará el puerto a través de esta variable
+    app.run(host='0.0.0.0', port=port)
