@@ -98,4 +98,4 @@ def recurso_protegido():
     return jsonify(mensaje="Acceso permitido", usuario=current_user), 200
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run()
