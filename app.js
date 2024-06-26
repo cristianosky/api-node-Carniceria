@@ -1,4 +1,5 @@
 const express = require('express');
+const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const bodyParser = require('body-parser');
@@ -6,6 +7,7 @@ const { getDbConnection, closeDbConnection } = require('./db');
 require('dotenv').config();
 
 const app = express();
+app.use(cors());
 app.use(bodyParser.json());
 
 const JWT_SECRET_KEY = process.env.JWT_SECRET_KEY;
