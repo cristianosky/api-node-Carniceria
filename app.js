@@ -46,17 +46,27 @@ app.post('/registro', (req, res) => {
         return res.status(400).json({ error: 'Faltan campos obligatorios' });
     }
 
-    const contrasenaHasheada = bcrypt.hashSync(contrasena, 10);
     const connection = getDbConnection();
 
-    const query = 'INSERT INTO usuarios (nombre, usuario, contrasena, estado) VALUES (?, ?, ?, ?)';
-    connection.query(query, [nombre, usuario, contrasenaHasheada, estado], (error, results) => {
+    // Verificar si el usuario ya existe
+    connection.query('SELECT * FROM usuarios WHERE usuario = ?', [usuario], (error, results) => {
         if (error) {
             res.status(500).json({ error: 'No se pudo registrar el usuario' });
+        } else if (results.length > 0) {
+            res.status(400).json({ error: 'El nombre de usuario ya está en uso' });
         } else {
-            res.status(201).json({ mensaje: 'Usuario registrado correctamente' });
+            const contrasenaHasheada = bcrypt.hashSync(contrasena, 10);
+
+            const query = 'INSERT INTO usuarios (nombre, usuario, contrasena, estado) VALUES (?, ?, ?, ?)';
+            connection.query(query, [nombre, usuario, contrasenaHasheada, estado], (error, results) => {
+                if (error) {
+                    res.status(500).json({ error: 'No se pudo registrar el usuario' });
+                } else {
+                    res.status(201).json({ mensaje: 'Usuario registrado correctamente' });
+                }
+                closeDbConnection(connection);
+            });
         }
-        closeDbConnection(connection);
     });
 });
 
