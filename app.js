@@ -103,6 +103,30 @@ app.get('/recurso_protegido', authenticateToken, (req, res) => {
     res.json({ mensaje: 'Acceso permitido', usuario: req.user });
 });
 
+app.post('/addproductos', authenticateToken, (req, res) => {
+    const { nombre_producto, categoria, unidad_medida, precio_unitario, comentario } = req.body;
+
+    if (!nombre_producto || !categoria || !unidad_medida || !precio_unitario) {
+        return res.status(400).json({ error: 'Faltan campos obligatorios' });
+    }
+
+    const connection = getDbConnection();
+
+    // Insertar el nuevo producto en la base de datos con fecha de ingreso automática
+    const sql = 'INSERT INTO Productos (nombre_producto, categoria, unidad_medida, precio_unitario, fecha_ingreso, comentario) VALUES (?, ?, ?, ?, NOW(), ?)';
+    const values = [nombre_producto, categoria, unidad_medida, precio_unitario, comentario];
+
+    connection.query(sql, values, (error, results) => {
+        if (error) {
+            console.error('Error ejecutando la consulta:', error.stack);
+            res.status(500).json({ error: 'No se pudo agregar el producto' });
+        } else {
+            res.status(201).json({ mensaje: 'Producto agregado exitosamente', id_producto: results.insertId });
+        }
+        closeDbConnection(connection);
+    });
+});
+
 app.get('/', (req, res) => {
     res.send('Hello, World!');
 });
