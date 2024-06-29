@@ -14,7 +14,9 @@ const JWT_SECRET_KEY = process.env.JWT_SECRET_KEY;
 
 // Middleware para verificar el token JWT
 function authenticateToken(req, res, next) {
-    const token = req.headers['authorization'];
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+
     if (!token) return res.sendStatus(401);
 
     jwt.verify(token, JWT_SECRET_KEY, (err, user) => {
@@ -98,12 +100,8 @@ app.post('/login', (req, res) => {
     });
 });
 
-// Ruta protegida que requiere token JWT para acceder
-app.get('/recurso_protegido', authenticateToken, (req, res) => {
-    res.json({ mensaje: 'Acceso permitido', usuario: req.user });
-});
-
-app.post('/addproductos', authenticateToken, (req, res) => {
+// Ruta para agregar un nuevo producto
+app.post('/addProducto', authenticateToken, (req, res) => {
     const { nombre_producto, categoria, unidad_medida, precio_unitario, comentario } = req.body;
 
     if (!nombre_producto || !categoria || !unidad_medida || !precio_unitario) {
@@ -125,6 +123,70 @@ app.post('/addproductos', authenticateToken, (req, res) => {
         }
         closeDbConnection(connection);
     });
+});
+
+// Ruta para listar todos los productos (requiere autenticación)
+app.get('/productos', authenticateToken, (req, res) => {
+    const connection = getDbConnection();
+
+    connection.query('SELECT * FROM Productos', (error, results) => {
+        if (error) {
+            res.status(500).json({ error: 'No se pudo obtener la lista de productos' });
+        } else {
+            res.json(results);
+        }
+        closeDbConnection(connection);
+    });
+});
+
+// Ruta para actualizar un producto (requiere autenticación)
+app.put('/productos/:id', authenticateToken, (req, res) => {
+    const { id } = req.params;
+    const { nombre_producto, categoria, unidad_medida, precio_unitario, comentario } = req.body;
+
+    if (!nombre_producto || !categoria || !unidad_medida || !precio_unitario) {
+        return res.status(400).json({ error: 'Faltan campos obligatorios' });
+    }
+
+    const connection = getDbConnection();
+
+    // Actualizar el producto en la base de datos
+    const sql = 'UPDATE Productos SET nombre_producto = ?, categoria = ?, unidad_medida = ?, precio_unitario = ?, comentario = ? WHERE id_producto = ?';
+    const values = [nombre_producto, categoria, unidad_medida, precio_unitario, comentario, id];
+
+    connection.query(sql, values, (error, results) => {
+        if (error) {
+            console.error('Error ejecutando la consulta:', error.stack);
+            res.status(500).json({ error: 'No se pudo actualizar el producto' });
+        } else {
+            res.json({ mensaje: 'Producto actualizado exitosamente' });
+        }
+        closeDbConnection(connection);
+    });
+});
+
+// Ruta para eliminar un producto (requiere autenticación)
+app.delete('/productos/:id', authenticateToken, (req, res) => {
+    const { id } = req.params;
+
+    const connection = getDbConnection();
+
+    // Eliminar el producto de la base de datos
+    const sql = 'DELETE FROM Productos WHERE id_producto = ?';
+    connection.query(sql, [id], (error, results) => {
+        if (error) {
+            console.error('Error ejecutando la consulta:', error.stack);
+            res.status(500).json({ error: 'No se pudo eliminar el producto' });
+        } else {
+            res.json({ mensaje: 'Producto eliminado exitosamente' });
+        }
+        closeDbConnection(connection);
+    });
+});
+
+// Ruta protegida que requiere token JWT para acceder
+app.get('/recurso_protegido', authenticateToken, (req, res) => {
+    res.json({ mensaje: 'Acceso permitido', usuario: req.user });
 });
 
 app.get('/', (req, res) => {
