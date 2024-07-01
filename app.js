@@ -72,8 +72,8 @@ app.post('/registro', (req, res) => {
     });
 });
 
-// Ruta para realizar el inicio de sesión y obtener token JWT
-app.post('/login', (req, res) => {
+// Ruta para iniciar sesión y obtener token JWT
+app.post('/login', async (req, res) => {
     const { usuario, contrasena } = req.body;
 
     if (!usuario || !contrasena) {
@@ -82,22 +82,36 @@ app.post('/login', (req, res) => {
 
     const connection = getDbConnection();
 
-    connection.query('SELECT * FROM usuarios WHERE usuario = ?', [usuario], (error, results) => {
-        if (error || results.length === 0) {
-            res.status(500).json({ error: 'No se pudo conectar a la base de datos' });
-        } else {
-            const usuarioDb = results[0];
+    try {
+        const results = await new Promise((resolve, reject) => {
+            connection.query('SELECT * FROM usuarios WHERE usuario = ?', [usuario], (error, results) => {
+                if (error) reject(error);
+                else resolve(results);
+            });
+        });
 
-            if (!bcrypt.compareSync(contrasena, usuarioDb.contrasena)) {
-                res.status(401).json({ error: 'Usuario o contraseña inválidos' });
-            } else {
-                const accessToken = jwt.sign({ usuario: usuarioDb.usuario }, JWT_SECRET_KEY);
-                delete usuarioDb.contrasena;
-                res.json({ mensaje: 'Inicio de sesión exitoso', access_token: accessToken, usuario: usuarioDb });
-            }
+        if (!results || results.length === 0) {
+            return res.status(401).json({ error: 'Usuario o contraseña inválidos' });
         }
+
+        const usuarioDb = results[0];
+
+        const isMatch = await bcrypt.compare(contrasena, usuarioDb.contrasena);
+
+        if (!isMatch) {
+            return res.status(401).json({ error: 'Usuario o contraseña inválidos' });
+        }
+
+        const accessToken = jwt.sign({ usuario: usuarioDb.usuario }, JWT_SECRET_KEY);
+        delete usuarioDb.contrasena;
+        res.json({ mensaje: 'Inicio de sesión exitoso', access_token: accessToken, usuario: usuarioDb });
+
+    } catch (error) {
+        console.error('Error en la consulta:', error.stack);
+        res.status(500).json({ error: 'No se pudo conectar a la base de datos' });
+    } finally {
         closeDbConnection(connection);
-    });
+    }
 });
 
 // Ruta para agregar un nuevo producto
