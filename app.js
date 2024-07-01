@@ -111,7 +111,7 @@ app.post('/addProducto', authenticateToken, (req, res) => {
     const connection = getDbConnection();
 
     // Insertar el nuevo producto en la base de datos con fecha de ingreso automática
-    const sql = 'INSERT INTO Productos (nombre_producto, categoria, unidad_medida, fecha_ingreso, comentario) VALUES (?, ?, ?, ?, NOW(), ?)';
+    const sql = 'INSERT INTO Productos (nombre_producto, categoria, unidad_medida, fecha_ingreso, comentario) VALUES (?, ?, ?, NOW(), ?)';
     const values = [nombre_producto, categoria, unidad_medida, comentario];
 
     connection.query(sql, values, (error, results) => {
