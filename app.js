@@ -102,17 +102,17 @@ app.post('/login', (req, res) => {
 
 // Ruta para agregar un nuevo producto
 app.post('/addProducto', authenticateToken, (req, res) => {
-    const { nombre_producto, categoria, unidad_medida, precio_unitario, comentario } = req.body;
+    const { nombre_producto, categoria, unidad_medida, comentario } = req.body;
 
-    if (!nombre_producto || !categoria || !unidad_medida || !precio_unitario) {
+    if (!nombre_producto || !categoria || !unidad_medida) {
         return res.status(400).json({ error: 'Faltan campos obligatorios' });
     }
 
     const connection = getDbConnection();
 
     // Insertar el nuevo producto en la base de datos con fecha de ingreso automática
-    const sql = 'INSERT INTO Productos (nombre_producto, categoria, unidad_medida, precio_unitario, fecha_ingreso, comentario) VALUES (?, ?, ?, ?, NOW(), ?)';
-    const values = [nombre_producto, categoria, unidad_medida, precio_unitario, comentario];
+    const sql = 'INSERT INTO Productos (nombre_producto, categoria, unidad_medida, fecha_ingreso, comentario) VALUES (?, ?, ?, ?, NOW(), ?)';
+    const values = [nombre_producto, categoria, unidad_medida, comentario];
 
     connection.query(sql, values, (error, results) => {
         if (error) {
@@ -128,31 +128,46 @@ app.post('/addProducto', authenticateToken, (req, res) => {
 // Ruta para listar todos los productos (requiere autenticación)
 app.get('/productos', authenticateToken, (req, res) => {
     const connection = getDbConnection();
+    const { q } = req.query; // Obtener el parámetro de búsqueda desde la query string
 
-    connection.query('SELECT * FROM Productos', (error, results) => {
-        if (error) {
-            res.status(500).json({ error: 'No se pudo obtener la lista de productos' });
-        } else {
-            res.json(results);
-        }
-        closeDbConnection(connection);
-    });
+    let sql = 'SELECT * FROM Productos';
+
+    if (q) {
+        sql += ' WHERE nombre_producto LIKE ?';
+        connection.query(sql, [`%${q}%`], (error, results) => {
+            if (error) {
+                res.status(500).json({ error: 'No se pudo obtener la lista de productos' });
+            } else {
+                res.json(results);
+            }
+            closeDbConnection(connection);
+        });
+    } else {
+        connection.query(sql, (error, results) => {
+            if (error) {
+                res.status(500).json({ error: 'No se pudo obtener la lista de productos' });
+            } else {
+                res.json(results);
+            }
+            closeDbConnection(connection);
+        });
+    }
 });
 
 // Ruta para actualizar un producto (requiere autenticación)
 app.put('/productos/:id', authenticateToken, (req, res) => {
     const { id } = req.params;
-    const { nombre_producto, categoria, unidad_medida, precio_unitario, comentario } = req.body;
+    const { nombre_producto, categoria, unidad_medida, comentario } = req.body;
 
-    if (!nombre_producto || !categoria || !unidad_medida || !precio_unitario) {
+    if (!nombre_producto || !categoria || !unidad_medida) {
         return res.status(400).json({ error: 'Faltan campos obligatorios' });
     }
 
     const connection = getDbConnection();
 
     // Actualizar el producto en la base de datos
-    const sql = 'UPDATE Productos SET nombre_producto = ?, categoria = ?, unidad_medida = ?, precio_unitario = ?, comentario = ? WHERE id_producto = ?';
-    const values = [nombre_producto, categoria, unidad_medida, precio_unitario, comentario, id];
+    const sql = 'UPDATE Productos SET nombre_producto = ?, categoria = ?, unidad_medida = ?, comentario = ? WHERE id_producto = ?';
+    const values = [nombre_producto, categoria, unidad_medida, comentario, id];
 
     connection.query(sql, values, (error, results) => {
         if (error) {
@@ -179,6 +194,85 @@ app.delete('/productos/:id', authenticateToken, (req, res) => {
             res.status(500).json({ error: 'No se pudo eliminar el producto' });
         } else {
             res.json({ mensaje: 'Producto eliminado exitosamente' });
+        }
+        closeDbConnection(connection);
+    });
+});
+
+// Ruta para agregar inventario
+app.post('/addInventario', authenticateToken, (req, res) => {
+    const { id_producto, cantidad, precio_unitario } = req.body;
+
+    if (!id_producto || !cantidad || !precio_unitario) {
+        return res.status(400).json({ error: 'Faltan campos obligatorios' });
+    }
+
+    const connection = getDbConnection();
+
+    // Insertar el nuevo registro de inventario en la base de datos
+    const sql = 'INSERT INTO Inventario (id_producto, cantidad, precio_unitario, fecha_actualizacion) VALUES (?, ?, ?, NOW())';
+    const values = [id_producto, cantidad, precio_unitario];
+
+    connection.query(sql, values, (error, results) => {
+        if (error) {
+            console.error('Error ejecutando la consulta:', error.stack);
+            res.status(500).json({ error: 'No se pudo agregar el inventario' });
+        } else {
+            res.status(201).json({ mensaje: 'Inventario agregado exitosamente', id_inventario: results.insertId });
+        }
+        closeDbConnection(connection);
+    });
+});
+
+// Ruta para obtener el inventario
+app.get('/inventario', (req, res) => {
+    const { q } = req.query;
+
+    const connection = getDbConnection();
+    let sql = `
+        SELECT i.*, p.*
+        FROM Inventario i
+        JOIN Productos p ON i.id_producto = p.id_producto
+    `;
+    let values = [];
+
+    if (q) {
+        sql += ' WHERE p.nombre_producto LIKE ?';
+        values.push(`%${q}%`);
+    }
+
+    connection.query(sql, values, (error, results) => {
+        if (error) {
+            console.error('Error ejecutando la consulta:', error.stack);
+            res.status(500).json({ error: 'No se pudo obtener el inventario' });
+        } else {
+            res.json(results);
+        }
+        closeDbConnection(connection);
+    });
+});
+
+// Ruta para eliminar inventario
+app.delete('/inventario/:id_inventario', (req, res) => {
+    const { id_inventario } = req.params;
+
+    if (!id_inventario) {
+        return res.status(400).json({ error: 'Falta el id_inventario' });
+    }
+
+    const connection = getDbConnection();
+
+    const sql = 'DELETE FROM Inventario WHERE id_inventario = ?';
+    const values = [id_inventario];
+
+    connection.query(sql, values, (error, results) => {
+        if (error) {
+            console.error('Error ejecutando la consulta:', error.stack);
+            res.status(500).json({ error: 'No se pudo eliminar el inventario' });
+        } else if (results.affectedRows === 0) {
+            res.status(404).json({ error: 'No se encontró el inventario con el id proporcionado' });
+        } else {
+            res.status(200).json({ mensaje: 'Inventario eliminado exitosamente' });
         }
         closeDbConnection(connection);
     });
