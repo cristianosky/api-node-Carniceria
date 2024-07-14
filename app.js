@@ -626,6 +626,47 @@ app.put('/pagarVenta/:id_venta', authenticateToken, async (req, res) => {
 });
 
 
+// Endpoint para obtener el producto más vendido en un rango de fechas
+app.get('/productoMasVendido', authenticateToken, (req, res) => {
+    const { fecha_inicio, fecha_fin } = req.query;
+
+    if (!fecha_inicio || !fecha_fin) {
+        return res.status(400).json({ error: 'Faltan campos obligatorios' });
+    }
+
+    const connection = getDbConnection();
+
+    const productoMasVendidoSql = `
+        SELECT 
+            p.nombre_producto,
+            SUM(dv.cantidad) AS total_vendido
+        FROM 
+            Ventas v
+        JOIN 
+            DetalleVentas dv ON v.id_venta = dv.id_venta
+        JOIN 
+            Productos p ON dv.id_producto = p.id_producto
+        WHERE 
+            v.fecha_venta BETWEEN ? AND ?
+        GROUP BY 
+            p.nombre_producto
+        ORDER BY 
+            total_vendido DESC
+        ;
+    `;
+
+    connection.query(productoMasVendidoSql, [fecha_inicio, fecha_fin], (error, results) => {
+        if (error) {
+            console.error('Error al obtener el producto más vendido:', error.stack);
+            return res.status(500).json({ error: 'No se pudo obtener el producto más vendido' });
+        }
+
+        res.status(200).json(results);
+    });
+
+    closeDbConnection(connection);
+});
+
 
 
 app.get('/', (req, res) => {
